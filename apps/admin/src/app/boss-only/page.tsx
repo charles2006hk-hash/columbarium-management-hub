@@ -148,7 +148,7 @@ export default function BossFinancialSandbox() {
                 <input type="number" value={avgTabletPrice} onChange={e => setAvgTabletPrice(Number(e.target.value))} className="w-full mt-1 bg-green-50 text-stone-900 border-stone-300 rounded focus:border-green-500 p-2 border" />
               </div>
               <div>
-                <label className="block text-sm font-medium text-stone-600">平穩期每月去化 (座)</label>
+                <label className="block text-sm font-medium text-stone-600">平穩期每月售出祿位 (座)</label>
                 <input type="number" value={normalMonthlyVolume} onChange={e => setNormalMonthlyVolume(Number(e.target.value))} className="w-full mt-1 bg-green-50 text-stone-900 border-stone-300 rounded focus:border-green-500 p-2 border" />
               </div>
             </div>
@@ -180,9 +180,9 @@ export default function BossFinancialSandbox() {
           <div className="bg-stone-50 p-8 rounded-xl border border-stone-200 prose prose-stone max-w-none">
             <h3 className="text-xl font-bold text-stone-900 border-b border-stone-300 pb-2">⏱️ 時間與現金流深度分析</h3>
             
-            <h4 className="text-stone-800 font-bold mt-6">1. 資金池健康度與超支風險 (Contingency Risk)</h4>
+            <h4 className="text-stone-800 font-bold mt-6">1. 資金池與無牌照風險紅利</h4>
             <p className="text-sm text-stone-600">
-              實拿資金 ${(requiredCash/10000).toFixed(0)} 萬。根據行業經驗，舊建築 A&A 工程極易超支，系統已自動為您的工程預算加入 <strong>20% 的超支準備金</strong> (總計 ${(capExWithContingency/10000).toFixed(1)} 萬)。
+              實拿資金 ${(requiredCash/10000).toFixed(0)} 萬。由於本專案採「純祿位不存骨灰」模式，完美避開骨灰龕條例。系統設定的 20% 超支準備金 (總計 ${(capExWithContingency/10000).toFixed(1)} 萬) 僅用於室內裝潢與承重強化。
               扣除後，真實營運週轉金 (Buffer) 剩餘 <strong className={bufferCash >= 0 ? "text-green-600" : "text-red-600"}>${(bufferCash/10000).toFixed(1)} 萬</strong>。
             </p>
 
