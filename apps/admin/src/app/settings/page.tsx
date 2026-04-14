@@ -11,6 +11,7 @@ const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
   authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
   projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
 };
 const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
 const db = getFirestore(app);
@@ -18,11 +19,18 @@ const db = getFirestore(app);
 export default function SettingsPage() {
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
-  
-  // 6 大區域定價
+
+  // 1. 員工權限名單 (模擬數據)
+  const [staffList] = useState([
+    { id: 1, name: "系統管理員 (Admin)", email: "admin@dev-mode.com", role: "admin", status: "active" },
+    { id: 2, name: "前台客服 (Staff)", email: "staff@test.com", role: "staff", status: "active" },
+    { id: 3, name: "法事師傅 (Master)", email: "master@test.com", role: "staff", status: "inactive" },
+  ]);
+
+  // 2. 6 大區域定價
   const [prices, setPrices] = useState({ 大堂區: 58000, 天區: 88000, 地區: 68000, 玄區: 78000, 宇區: 48000, 宙區: 38000 });
   
-  // 動態服務項目列表
+  // 3. 動態服務項目列表
   const [serviceTypes, setServiceTypes] = useState<string[]>([]);
   const [newService, setNewService] = useState("");
 
@@ -70,16 +78,61 @@ export default function SettingsPage() {
   };
 
   if (user?.role !== "admin") return <div className="text-center p-20 text-xl font-bold">🔒 權限不足</div>;
-  if (loading) return <div className="p-8 text-center">載入中...</div>;
+  if (loading) return <div className="p-8 text-center text-stone-500">載入設定中...</div>;
 
   return (
-    <div className="space-y-8 max-w-5xl">
+    <div className="space-y-8 max-w-5xl pb-20">
       <div>
-        <h1 className="text-2xl font-bold text-stone-900">系統參數設定</h1>
-        <p className="text-sm text-stone-500 mt-1">管理祿位定價與法事項目選單。</p>
+        <h1 className="text-2xl font-bold text-stone-900">系統設定與權限</h1>
+        <p className="text-sm text-stone-500 mt-1">管理員專屬控制台，可調整系統參數與員工權限。</p>
       </div>
 
-      {/* 區塊 1：祿位定價 (補齊 6 區) */}
+      {/* 區塊 1：員工帳號與權限 (RBAC) */}
+      <div className="bg-white rounded-xl shadow-sm border border-stone-200 overflow-hidden">
+        <div className="px-6 py-4 border-b border-stone-200 flex justify-between items-center bg-stone-50">
+          <h2 className="text-lg font-bold text-stone-800">員工帳號與權限 (RBAC)</h2>
+          <button className="bg-stone-800 text-white px-3 py-1.5 rounded text-sm font-medium hover:bg-stone-700">
+            + 新增帳號
+          </button>
+        </div>
+        <table className="min-w-full divide-y divide-stone-200">
+          <thead className="bg-white">
+            <tr>
+              <th className="px-6 py-3 text-left text-xs font-semibold text-stone-500 uppercase">員工姓名</th>
+              <th className="px-6 py-3 text-left text-xs font-semibold text-stone-500 uppercase">帳號 (Email)</th>
+              <th className="px-6 py-3 text-left text-xs font-semibold text-stone-500 uppercase">系統角色</th>
+              <th className="px-6 py-3 text-left text-xs font-semibold text-stone-500 uppercase">狀態</th>
+              <th className="px-6 py-3 text-right text-xs font-semibold text-stone-500 uppercase">操作</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-stone-200 bg-white">
+            {staffList.map((staff) => (
+              <tr key={staff.id}>
+                <td className="px-6 py-4 text-sm font-bold text-stone-900">{staff.name}</td>
+                <td className="px-6 py-4 text-sm text-stone-500">{staff.email}</td>
+                <td className="px-6 py-4">
+                  <span className={`inline-flex items-center rounded-md px-2 py-1 text-xs font-bold ${
+                    staff.role === 'admin' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'
+                  }`}>
+                    {staff.role === 'admin' ? '管理員 (Admin)' : '一般職員 (Staff)'}
+                  </span>
+                </td>
+                <td className="px-6 py-4">
+                  <span className={`inline-flex items-center rounded-full w-2 h-2 mr-2 ${
+                    staff.status === 'active' ? 'bg-green-500' : 'bg-red-500'
+                  }`}></span>
+                  <span className="text-sm text-stone-600">{staff.status === 'active' ? '啟用中' : '已停權'}</span>
+                </td>
+                <td className="px-6 py-4 text-right text-sm font-medium">
+                  <button className="text-amber-700 hover:text-amber-900">編輯權限</button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {/* 區塊 2：祿位分區定價 */}
       <div className="bg-white rounded-xl shadow-sm border border-stone-200 p-6">
         <h2 className="text-lg font-bold text-stone-800 mb-4">祿位分區定價 (HKD)</h2>
         <div className="grid grid-cols-2 md:grid-cols-3 gap-6">
@@ -97,7 +150,7 @@ export default function SettingsPage() {
         </div>
       </div>
 
-      {/* 區塊 2：法事與服務項目管理 */}
+      {/* 區塊 3：法事與服務項目管理 */}
       <div className="bg-white rounded-xl shadow-sm border border-stone-200 p-6">
         <h2 className="text-lg font-bold text-stone-800 mb-4">法事項目選單管理</h2>
         <div className="flex gap-2 mb-4">
