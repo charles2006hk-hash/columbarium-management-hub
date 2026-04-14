@@ -3,154 +3,208 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { collection, getDocs, query, where, orderBy, limit } from "firebase/firestore";
+import { collection, query, where, getDocs, orderBy, limit } from "firebase/firestore";
 import { initializeApp, getApps, getApp } from "firebase/app";
 import { getFirestore } from "firebase/firestore";
-import { useAuth } from "@/context/AuthContext";
 
+// Firebase 初始化
 const firebaseConfig = {
-  apiKey: "AIzaSyAdU0mra6pXm4jvpHc3XVc68RMcE_n1Q2I",
-  authDomain: "columbarium-hub-2026.firebaseapp.com",
-  projectId: "columbarium-hub-2026",
+  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
+  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
+  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
 };
 const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
 const db = getFirestore(app);
 
-export default function DashboardPage() {
-  const { user } = useAuth();
-  const [stats, setStats] = useState({ sold: 0, available: 0, pendingServices: 0 });
-  const [recentOrders, setRecentOrders] = useState<any[]>([]);
+export default function Dashboard() {
   const [loading, setLoading] = useState(true);
+  const [stats, setStats] = useState({
+    soldTablets: 0,
+    availableTablets: 9600, // 假設全廟總容量為 9600
+    totalRevenue: 0,
+    newLeadsCount: 0
+  });
+  
+  const [recentOrders, setRecentOrders] = useState<any[]>([]);
+  const [recentLeads, setRecentLeads] = useState<any[]>([]);
 
   useEffect(() => {
-    async function loadDashboardData() {
+    async function fetchDashboardData() {
+      setLoading(true);
       try {
-        // 1. 抓取近期訂單
-        const orderQ = query(collection(db, "orders"), orderBy("createdAt", "desc"), limit(5));
-        const orderSnap = await getDocs(orderQ);
-        setRecentOrders(orderSnap.docs.map(doc => doc.data()));
+        // 1. 抓取已售出祿位數量
+        const tabletsQ = query(collection(db, "tablets"), where("status", "==", "sold"));
+        const tabletsSnap = await getDocs(tabletsQ);
+        const soldCount = tabletsSnap.size;
 
-        // 2. 抓取待處理法事
-        const serviceQ = query(collection(db, "services"), where("status", "==", "pending"));
-        const serviceSnap = await getDocs(serviceQ);
-
-        // 3. 簡單模擬整體數量 (真實場景會用 aggregation API 或維持在 metadata)
-        setStats({
-          sold: 1420, // 示意數據
-          available: 8180, // 示意數據
-          pendingServices: serviceSnap.size,
+        // 2. 抓取總營業額
+        const ordersQ = query(collection(db, "orders"));
+        const ordersSnap = await getDocs(ordersQ);
+        let revenue = 0;
+        const ordersData: any[] = [];
+        ordersSnap.forEach(doc => {
+          const data = doc.data();
+          revenue += Number(data.amount || 0);
+          ordersData.push({ id: doc.id, ...data });
         });
+        
+        // 排序最新訂單 (取前 5 筆)
+        const sortedOrders = ordersData.sort((a, b) => b.createdAt?.toMillis() - a.createdAt?.toMillis()).slice(0, 5);
+
+        // 3. 抓取未處理的預約參觀 (Leads)
+        const leadsQ = query(collection(db, "leads"), where("status", "==", "new"));
+        const leadsSnap = await getDocs(leadsQ);
+        const newLeadsCount = leadsSnap.size;
+        
+        // 抓取最新預約名單
+        const recentLeadsQ = query(collection(db, "leads"), orderBy("createdAt", "desc"), limit(5));
+        const recentLeadsSnap = await getDocs(recentLeadsQ);
+        const leadsData = recentLeadsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+        // 更新狀態
+        setStats({
+          soldTablets: soldCount,
+          availableTablets: 9600 - soldCount,
+          totalRevenue: revenue,
+          newLeadsCount: newLeadsCount
+        });
+        setRecentOrders(sortedOrders);
+        setRecentLeads(leadsData);
+
       } catch (err) {
-        console.error("載入儀表板失敗:", err);
+        console.error("載入儀表板數據失敗:", err);
       } finally {
         setLoading(false);
       }
     }
-    loadDashboardData();
+
+    fetchDashboardData();
   }, []);
 
+  if (loading) {
+    return <div className="p-20 text-center text-stone-500 font-medium animate-pulse">數據即時運算中...</div>;
+  }
+
   return (
-    <div className="space-y-8 max-w-7xl mx-auto">
-      
-      {/* 歡迎橫幅 (帶有東方莊嚴質感的背景) */}
-      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-stone-900 to-stone-800 p-8 shadow-xl">
-        <div className="absolute top-0 right-0 -mt-16 -mr-16 text-stone-700 opacity-20 text-9xl">🪷</div>
-        <div className="relative z-10">
-          <h1 className="text-3xl font-bold text-amber-50 font-serif">
-            歡迎回來，{user?.role === 'admin' ? '管理員' : '工作人員'}
-          </h1>
-          <p className="mt-2 text-stone-400 max-w-xl">
-            觀塘地藏王古廟祿位管理系統。今天是 {new Intl.DateTimeFormat('zh-HK', { dateStyle: 'full' }).format(new Date())}。
-          </p>
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-stone-900">總覽儀表板</h1>
+          <p className="text-sm text-stone-500 mt-1">歡迎回來，這裡是觀塘地藏王古廟的營運數據中心。</p>
         </div>
       </div>
 
-      {/* 核心數據卡片 */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="bg-white p-6 rounded-2xl shadow-sm border border-stone-200 flex items-center justify-between group hover:border-amber-400 transition-colors">
-          <div>
-            <p className="text-sm font-medium text-stone-500">已售出祿位 (安座)</p>
-            <p className="text-3xl font-bold text-stone-800 mt-1">{stats.sold}</p>
+      {/* 數據卡片區 */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="bg-white p-6 rounded-xl shadow-sm border border-stone-200 border-l-4 border-l-amber-600">
+          <p className="text-sm font-medium text-stone-500">已售出祿位 (安座)</p>
+          <div className="mt-2 flex items-baseline gap-2">
+            <p className="text-3xl font-bold text-stone-900">{stats.soldTablets}</p>
+            <p className="text-sm text-stone-500">座</p>
           </div>
-          <div className="w-12 h-12 bg-amber-50 rounded-full flex items-center justify-center text-amber-700 text-xl group-hover:bg-amber-100 transition-colors">🏛️</div>
         </div>
-        <div className="bg-white p-6 rounded-2xl shadow-sm border border-stone-200 flex items-center justify-between group hover:border-amber-400 transition-colors">
-          <div>
-            <p className="text-sm font-medium text-stone-500">可選空位 (虛位以待)</p>
-            <p className="text-3xl font-bold text-stone-800 mt-1">{stats.available}</p>
-          </div>
-          <div className="w-12 h-12 bg-green-50 rounded-full flex items-center justify-center text-green-700 text-xl group-hover:bg-green-100 transition-colors">🌿</div>
-        </div>
-        <div className="bg-white p-6 rounded-2xl shadow-sm border border-stone-200 flex items-center justify-between group hover:border-amber-400 transition-colors">
-          <div>
-            <p className="text-sm font-medium text-stone-500">今日待辦服務/法事</p>
-            <p className="text-3xl font-bold text-red-600 mt-1">{loading ? '-' : stats.pendingServices}</p>
-          </div>
-          <div className="w-12 h-12 bg-red-50 rounded-full flex items-center justify-center text-red-600 text-xl group-hover:bg-red-100 transition-colors">🪔</div>
-        </div>
-      </div>
-
-      {/* 快捷操作與近期動態 */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         
-        {/* 左側：快速操作入口 */}
-        <div className="lg:col-span-1 space-y-4">
-          <h2 className="text-lg font-bold text-stone-800 mb-4">系統捷徑</h2>
-          <Link href="/tablets" className="flex items-center p-4 bg-white border border-stone-200 rounded-xl hover:shadow-md hover:border-amber-400 transition-all group">
-            <div className="w-10 h-10 bg-amber-50 rounded-lg flex items-center justify-center text-amber-700 mr-4 group-hover:scale-110 transition-transform">🗺️</div>
-            <div>
-              <h3 className="font-bold text-stone-800">祿位平面總覽</h3>
-              <p className="text-xs text-stone-500">查看位置圖與快速登記</p>
-            </div>
-          </Link>
-          <Link href="/services" className="flex items-center p-4 bg-white border border-stone-200 rounded-xl hover:shadow-md hover:border-amber-400 transition-all group">
-            <div className="w-10 h-10 bg-stone-100 rounded-lg flex items-center justify-center text-stone-700 mr-4 group-hover:scale-110 transition-transform">📸</div>
-            <div>
-              <h3 className="font-bold text-stone-800">法事服務執行</h3>
-              <p className="text-xs text-stone-500">上傳照片與結案</p>
-            </div>
-          </Link>
-          <Link href="/finance" className="flex items-center p-4 bg-white border border-stone-200 rounded-xl hover:shadow-md hover:border-amber-400 transition-all group">
-            <div className="w-10 h-10 bg-green-50 rounded-lg flex items-center justify-center text-green-700 mr-4 group-hover:scale-110 transition-transform">📊</div>
-            <div>
-              <h3 className="font-bold text-stone-800">財務與報表</h3>
-              <p className="text-xs text-stone-500">查閱協議書與總結</p>
-            </div>
-          </Link>
+        <div className="bg-white p-6 rounded-xl shadow-sm border border-stone-200">
+          <p className="text-sm font-medium text-stone-500">可選空位 (虛位以待)</p>
+          <div className="mt-2 flex items-baseline gap-2">
+            <p className="text-3xl font-bold text-stone-900">{stats.availableTablets}</p>
+            <p className="text-sm text-stone-500">座</p>
+          </div>
         </div>
 
-        {/* 右側：近期訂單列表 */}
-        <div className="lg:col-span-2 bg-white rounded-2xl shadow-sm border border-stone-200 p-6">
-          <div className="flex justify-between items-center mb-6">
-            <h2 className="text-lg font-bold text-stone-800">近期登記 (安座) 紀錄</h2>
-            <Link href="/orders" className="text-sm font-medium text-amber-700 hover:text-amber-800">查看全部 &rarr;</Link>
+        <div className="bg-white p-6 rounded-xl shadow-sm border border-stone-200">
+          <p className="text-sm font-medium text-stone-500">新預約參觀 (未處理)</p>
+          <div className="mt-2 flex items-baseline gap-2">
+            <p className="text-3xl font-bold text-red-600">{stats.newLeadsCount}</p>
+            <p className="text-sm text-stone-500">組</p>
           </div>
-          
-          {loading ? (
-            <div className="text-center py-10 text-stone-400">載入中...</div>
-          ) : (
-            <div className="space-y-4">
-              {recentOrders.length > 0 ? recentOrders.map((order, i) => (
-                <div key={i} className="flex items-center justify-between p-4 bg-stone-50 rounded-xl border border-stone-100">
-                  <div className="flex items-center gap-4">
-                    <div className="w-10 h-12 bg-stone-800 rounded flex flex-col items-center justify-center border-2 border-amber-600 shadow-sm relative overflow-hidden">
-                      <div className="absolute top-0 w-full h-1 bg-amber-500"></div>
-                      <span className="text-amber-500 text-[10px] font-bold mt-1">{order.tabletId}</span>
-                    </div>
-                    <div>
-                      <p className="font-bold text-stone-900">{order.customerName}</p>
-                      <p className="text-xs text-stone-500">單號: {order.orderNo}</p>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <span className="inline-block px-2 py-1 bg-green-100 text-green-800 text-xs font-bold rounded">已結清</span>
-                  </div>
-                </div>
-              )) : (
-                <div className="text-center py-10 text-stone-400">尚無近期紀錄</div>
-              )}
+        </div>
+
+        <div className="bg-white p-6 rounded-xl shadow-sm border border-stone-200">
+          <p className="text-sm font-medium text-stone-500">累計協議總額 (HKD)</p>
+          <div className="mt-2 flex items-baseline gap-2">
+            <p className="text-3xl font-bold text-stone-900">${stats.totalRevenue.toLocaleString()}</p>
+          </div>
+        </div>
+      </div>
+
+      {/* 系統捷徑與近期動態 */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 pt-4">
+        
+        {/* 左側：捷徑與近期預約 */}
+        <div className="lg:col-span-1 space-y-6">
+          <div className="bg-white p-6 rounded-xl shadow-sm border border-stone-200">
+            <h3 className="text-lg font-bold text-stone-800 mb-4">系統捷徑</h3>
+            <div className="grid grid-cols-2 gap-3">
+              <Link href="/tablets" className="flex items-center justify-center p-3 bg-stone-50 hover:bg-amber-50 text-stone-700 hover:text-amber-800 rounded-lg border border-stone-200 transition-colors text-sm font-bold">
+                🗺️ 平面圖選位
+              </Link>
+              <Link href="/orders" className="flex items-center justify-center p-3 bg-stone-50 hover:bg-amber-50 text-stone-700 hover:text-amber-800 rounded-lg border border-stone-200 transition-colors text-sm font-bold">
+                📄 新增協議書
+              </Link>
+              <Link href="/services" className="flex items-center justify-center p-3 bg-stone-50 hover:bg-amber-50 text-stone-700 hover:text-amber-800 rounded-lg border border-stone-200 transition-colors text-sm font-bold">
+                🪔 派發法事
+              </Link>
+              <Link href="/leads" className="flex items-center justify-center p-3 bg-stone-50 hover:bg-amber-50 text-stone-700 hover:text-amber-800 rounded-lg border border-stone-200 transition-colors text-sm font-bold">
+                📞 聯絡名單
+              </Link>
             </div>
-          )}
+          </div>
+
+          <div className="bg-white p-6 rounded-xl shadow-sm border border-stone-200">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-bold text-stone-800">最新預約名單</h3>
+              <Link href="/leads" className="text-xs text-amber-600 font-bold hover:underline">查看全部</Link>
+            </div>
+            <div className="space-y-4">
+              {recentLeads.length > 0 ? recentLeads.map((lead) => (
+                <div key={lead.id} className="flex justify-between items-center border-b border-stone-100 pb-3 last:border-0 last:pb-0">
+                  <div>
+                    <p className="text-sm font-bold text-stone-800">{lead.name}</p>
+                    <p className="text-xs text-stone-500">{lead.phone}</p>
+                  </div>
+                  <span className={`text-[10px] px-2 py-1 rounded font-bold ${lead.status === 'new' ? 'bg-red-100 text-red-700' : 'bg-stone-100 text-stone-600'}`}>
+                    {lead.status === 'new' ? '未聯絡' : '已處理'}
+                  </span>
+                </div>
+              )) : <p className="text-sm text-stone-400 text-center py-4">尚無近期預約</p>}
+            </div>
+          </div>
+        </div>
+
+        {/* 右側：近期登記紀錄 */}
+        <div className="lg:col-span-2 bg-white rounded-xl shadow-sm border border-stone-200 flex flex-col">
+          <div className="px-6 py-5 border-b border-stone-200 flex justify-between items-center bg-stone-50 rounded-t-xl">
+            <h3 className="text-lg font-bold text-stone-800">近期登記 (協議書) 紀錄</h3>
+            <Link href="/orders" className="text-sm text-amber-700 hover:text-amber-800 font-bold">完整財務報表 ➝</Link>
+          </div>
+          <div className="p-0 overflow-x-auto">
+            <table className="min-w-full divide-y divide-stone-200">
+              <thead className="bg-white">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-semibold text-stone-500 uppercase">單號</th>
+                  <th className="px-6 py-3 text-left text-xs font-semibold text-stone-500 uppercase">祿位</th>
+                  <th className="px-6 py-3 text-left text-xs font-semibold text-stone-500 uppercase">客戶</th>
+                  <th className="px-6 py-3 text-right text-xs font-semibold text-stone-500 uppercase">金額</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-stone-100 bg-white">
+                {recentOrders.length > 0 ? recentOrders.map((order) => (
+                  <tr key={order.id} className="hover:bg-stone-50">
+                    <td className="px-6 py-4 text-sm text-stone-500 font-mono">{order.orderNo || order.id}</td>
+                    <td className="px-6 py-4 text-sm font-bold text-amber-900">{order.tabletId}</td>
+                    <td className="px-6 py-4 text-sm font-bold text-stone-800">{order.customerName}</td>
+                    <td className="px-6 py-4 text-sm font-bold text-stone-700 text-right">${order.amount?.toLocaleString()}</td>
+                  </tr>
+                )) : (
+                  <tr>
+                    <td colSpan={4} className="px-6 py-12 text-center text-stone-500">尚無訂單紀錄</td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
 
       </div>
