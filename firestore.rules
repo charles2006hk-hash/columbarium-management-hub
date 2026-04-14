@@ -1,0 +1,8 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 預設全部封鎖，開發初期如果你想先打通資料，可以暫時改為 allow read, write: if true;
+    // 但強烈建議直接使用我們剛才寫好的完整權限規則
+    allow read, write: if request.auth != null; 
+  }
+}
