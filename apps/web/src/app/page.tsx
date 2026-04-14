@@ -100,17 +100,17 @@ export default function Home() {
         </div>
       </section>
 
-      {/* 歷史源起：徹底修復手機端排版與對齊 */}
+     {/* 歷史源起：徹底修復手機端排版與對齊 */}
       <section id="history" className="py-16 md:py-32 bg-stone-200 relative overflow-hidden">
         <div className="absolute right-0 top-0 w-1/3 h-full bg-stone-300/50 transform -skew-x-12 translate-x-20 z-0"></div>
         
-        <div className="w-full md:w-5/12 flex justify-center">
-            {/* 拿掉固定高度，讓字體自然撐開黑框 */}
+        <div className="max-w-6xl mx-auto px-6 md:px-12 relative z-10 flex flex-col md:flex-row items-center gap-10 md:gap-16">
+          
+          {/* 左側：直書標語 (修復單行不折行) */}
+          <div className="w-full md:w-5/12 flex justify-center">
             <div className="py-10 px-6 md:p-12 bg-stone-900 border-4 border-double border-amber-700 shadow-2xl relative">
               <div className="absolute -top-3 -left-3 w-6 h-6 border-t-2 border-l-2 border-amber-500"></div>
               <div className="absolute -bottom-3 -right-3 w-6 h-6 border-b-2 border-r-2 border-amber-500"></div>
-              
-              {/* 加上 whitespace-nowrap 強制不換行，並拿掉 h-48 */}
               <div 
                 className="text-amber-500 font-serif font-bold text-2xl md:text-3xl tracking-[0.4em] whitespace-nowrap"
                 style={{ writingMode: 'vertical-rl' }}
@@ -120,22 +120,22 @@ export default function Home() {
             </div>
           </div>
           
+          {/* 右側：歷史文字介紹 */}
           <div className="w-full md:w-7/12">
             <div className="flex items-center justify-center md:justify-start gap-4 mb-4 md:mb-6">
               <span className="w-8 md:w-12 h-[2px] bg-amber-600"></span>
               <h3 className="text-amber-800 font-bold tracking-[0.2em] text-xs md:text-sm">歷史沿革</h3>
             </div>
-            {/* 取消換行標籤，讓文字自然流動，並置中或靠左 */}
             <h2 className="text-2xl md:text-4xl font-serif font-bold text-stone-900 mb-6 md:mb-8 tracking-widest leading-snug text-center md:text-left">
               「六一八」劫後祥瑞<br className="hidden md:block" />觀塘街坊的永恆守護
             </h2>
-            {/* 放棄 text-justify，改用 text-left 保證多端相容 */}
             <div className="space-y-4 md:space-y-6 text-stone-600 leading-relaxed text-left text-sm md:text-lg font-light">
               <p>1972年6月18日，暴雨引發嚴重山泥傾瀉，昔日俗稱「雞寮」的觀塘翠屏寮屋區遭受重創。在泥石洪流的無情席捲下，無數家園毀於一旦。</p>
               <p>然而，令人稱奇的是，當時供奉於山坡洞穴內的地藏王神像竟奇蹟般避過災劫，絲毫無損。這份祥瑞，給予了當時痛失親友的街坊極大的心靈慰藉。</p>
               <p>災後，政府撥地重建，古廟自此擴展。半世紀以來，地藏王古廟不僅是觀塘區的信仰核心，更是以佛法大願——<strong className="text-stone-900 font-medium">「地獄不空，誓不成佛」</strong>，超渡救濟無數先靈。我們延續這份慈悲，為家屬提供莊嚴的祖先祿位與法事服務。</p>
             </div>
           </div>
+
         </div>
       </section>
 
