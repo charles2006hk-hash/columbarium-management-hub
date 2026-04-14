@@ -104,13 +104,15 @@ export default function Home() {
       <section id="history" className="py-16 md:py-32 bg-stone-200 relative overflow-hidden">
         <div className="absolute right-0 top-0 w-1/3 h-full bg-stone-300/50 transform -skew-x-12 translate-x-20 z-0"></div>
         
-        <div className="max-w-6xl mx-auto px-6 md:px-12 relative z-10 flex flex-col md:flex-row items-center gap-10 md:gap-16">
-          <div className="w-full md:w-5/12 flex justify-center">
-            <div className="p-6 md:p-12 bg-stone-900 border-4 border-double border-amber-700 shadow-2xl relative">
+        <div className="w-full md:w-5/12 flex justify-center">
+            {/* 拿掉固定高度，讓字體自然撐開黑框 */}
+            <div className="py-10 px-6 md:p-12 bg-stone-900 border-4 border-double border-amber-700 shadow-2xl relative">
               <div className="absolute -top-3 -left-3 w-6 h-6 border-t-2 border-l-2 border-amber-500"></div>
               <div className="absolute -bottom-3 -right-3 w-6 h-6 border-b-2 border-r-2 border-amber-500"></div>
+              
+              {/* 加上 whitespace-nowrap 強制不換行，並拿掉 h-48 */}
               <div 
-                className="text-amber-500 font-serif font-bold text-2xl md:text-3xl tracking-[0.3em] leading-loose h-48 md:h-72"
+                className="text-amber-500 font-serif font-bold text-2xl md:text-3xl tracking-[0.4em] whitespace-nowrap"
                 style={{ writingMode: 'vertical-rl' }}
               >
                 眾生度盡方證菩提
