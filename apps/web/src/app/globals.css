@@ -24,3 +24,19 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+@layer base {
+  /* 強制設定所有表單元素的文字顏色與提示字顏色 */
+  input, 
+  select, 
+  textarea {
+    @apply text-stone-900 placeholder:text-stone-400 bg-white;
+  }
+
+  /* 針對被禁用的輸入框設定稍微淺一點的顏色 */
+  input:disabled, 
+  select:disabled, 
+  textarea:disabled {
+    @apply text-stone-500 bg-stone-100 cursor-not-allowed;
+  }
+}
