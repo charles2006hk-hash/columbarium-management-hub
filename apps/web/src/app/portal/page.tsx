@@ -59,7 +59,6 @@ export default function FamilyPortal() {
   };
 
   // 🔴 登入畫面：深色大殿風格
-  // 🔴 登入畫面：深色大殿風格
   if (!isLoggedIn) {
     return (
       <div className="min-h-screen bg-stone-950 font-sans selection:bg-amber-700 selection:text-white flex items-center justify-center relative px-6">
@@ -67,7 +66,7 @@ export default function FamilyPortal() {
         <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/black-scales.png')] opacity-30"></div>
         <div className="absolute top-0 inset-x-0 h-1/2 bg-gradient-to-b from-amber-900/10 to-transparent"></div>
         
-        {/* 🌟 新增：左上角明確的「返回主頁」按鈕 */}
+        {/* 左上角明確的「返回主頁」按鈕 */}
         <div className="absolute top-8 left-8 z-20">
           <Link 
             href="/" 
@@ -134,31 +133,27 @@ export default function FamilyPortal() {
   return (
     <div className="min-h-screen bg-stone-100 pb-24 font-sans">
       
+      {/* 導航列：包含返回主頁與登出按鈕 */}
       <nav className="bg-stone-950 border-b border-amber-900/50 relative z-20">
-  <div className="max-w-4xl mx-auto px-6 h-16 flex items-center justify-between">
-    {/* 左側：品牌標誌與返回主頁 */}
-    <Link href="/" className="text-amber-500 font-serif tracking-widest font-bold flex items-center gap-2 hover:opacity-80 transition-opacity">
-      <span>🪷</span> 觀塘地藏王古廟
-    </Link>
+        <div className="max-w-4xl mx-auto px-6 h-16 flex items-center justify-between">
+          <Link href="/" className="text-amber-500 font-serif tracking-widest font-bold flex items-center gap-2 hover:opacity-80 transition-opacity">
+            <span>🪷</span> 觀塘地藏王古廟
+          </Link>
 
-    <div className="flex items-center gap-4">
-      {/* 🌟 新增：返回主頁按鈕 */}
-      <Link href="/" className="text-xs text-stone-400 hover:text-white transition-colors">
-        返回主頁
-      </Link>
-      
-      {/* 原有的登出按鈕 */}
-      {isLoggedIn && (
-        <button 
-          onClick={() => setIsLoggedIn(false)} 
-          className="text-xs text-stone-400 hover:text-amber-500 transition-colors border border-stone-800 px-3 py-1 bg-stone-900"
-        >
-          登出系統
-        </button>
-      )}
-    </div>
-  </div>
-</nav>
+          <div className="flex items-center gap-4">
+            <Link href="/" className="text-xs text-stone-400 hover:text-white transition-colors">
+              返回主頁
+            </Link>
+            
+            <button 
+              onClick={() => setIsLoggedIn(false)} 
+              className="text-xs text-stone-400 hover:text-amber-500 transition-colors border border-stone-800 px-3 py-1 bg-stone-900"
+            >
+              登出系統
+            </button>
+          </div>
+        </div>
+      </nav>
 
       <div className="max-w-4xl mx-auto px-6 pt-12">
         
@@ -169,12 +164,11 @@ export default function FamilyPortal() {
           <div className="w-16 h-[1px] bg-amber-600 mx-auto mt-6"></div>
         </div>
 
-        {/* 虛擬牌位與位置資訊 (古風展台設計) */}
+        {/* 虛擬牌位與位置資訊 */}
         <div className="bg-white p-2 shadow-2xl border border-stone-200 mb-16 relative">
           <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/stardust.png')] opacity-10"></div>
           <div className="bg-stone-50 border-4 border-double border-stone-200 p-8 flex flex-col items-center relative z-10">
             
-            {/* 實體虛擬牌位 */}
             <div className="w-32 h-64 bg-stone-900 border-4 border-amber-700 rounded-t-xl shadow-2xl p-2 relative flex flex-col items-center justify-center mb-8">
               <div className="absolute inset-1 border border-amber-500/30 rounded-t-lg"></div>
               <div className="absolute top-0 w-full h-2 bg-gradient-to-r from-amber-600 via-amber-400 to-amber-600 rounded-t-sm"></div>
@@ -200,35 +194,42 @@ export default function FamilyPortal() {
           </div>
         </div>
 
-        {/* 法事紀錄畫廊 */}
+        {/* 📸 法事紀錄 - 支援多圖畫廊 (Smart Gallery) */}
         <div className="flex items-center gap-4 mb-8">
           <span className="w-8 h-[1px] bg-amber-600"></span>
           <h3 className="text-xl font-bold text-stone-800 tracking-widest font-serif">近期法事與供奉紀錄</h3>
         </div>
         
-        <div className="space-y-12">
+        <div className="space-y-16">
           {services.length > 0 ? services.map((s, i) => (
-            <div key={i} className="bg-white p-4 shadow-lg border border-stone-200">
-              {/* 照片金屬相框效果 */}
-              <div className="border border-stone-200 p-1 bg-stone-50 mb-4 relative group">
-                <div className="aspect-video w-full bg-stone-200 overflow-hidden relative">
-                  <img src={s.imageUrl} alt="法事現場" className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" />
-                  <div className="absolute inset-0 border-2 border-black/10 z-10 pointer-events-none"></div>
-                </div>
+            <div key={i} className="bg-white p-6 shadow-xl border border-stone-200">
+              <div className="flex justify-between items-center mb-6 border-b border-stone-100 pb-4">
+                <h4 className="font-bold text-stone-900 text-xl font-serif tracking-wider">{s.type}</h4>
+                <span className="font-bold text-amber-700 text-sm">
+                  {s.completedAt ? new Date(s.completedAt.toDate()).toLocaleDateString('zh-HK') : ''}
+                </span>
+              </div>
+
+              {/* 核心多圖展示區：根據圖片數量自動排版 */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                {s.imageUrls && s.imageUrls.length > 0 ? (
+                  s.imageUrls.map((url: string, idx: number) => (
+                    <div key={idx} className={`border border-stone-200 p-1 bg-stone-50 relative group overflow-hidden ${s.imageUrls.length === 1 ? 'sm:col-span-2 lg:col-span-3' : ''}`}>
+                      <img src={url} alt={`照片 ${idx+1}`} className="w-full h-64 object-cover hover:scale-105 transition-transform duration-700" />
+                    </div>
+                  ))
+                ) : s.imageUrl ? (
+                  /* 舊版單圖相容邏輯 */
+                  <div className="sm:col-span-2 lg:col-span-3 border border-stone-200 p-1 bg-stone-50 relative group overflow-hidden">
+                    <img src={s.imageUrl} alt="法事現場" className="w-full h-80 object-cover hover:scale-105 transition-transform duration-700" />
+                  </div>
+                ) : (
+                  <div className="col-span-full py-10 text-center text-stone-400 italic">尚未上傳現場照片</div>
+                )}
               </div>
               
-              {/* 資訊列 */}
-              <div className="flex justify-between items-end px-2 pb-2">
-                <div>
-                  <h4 className="font-bold text-stone-900 text-lg font-serif tracking-wider">{s.type}</h4>
-                  <p className="text-xs text-stone-500 mt-1 tracking-widest">單號：{s.taskId}</p>
-                </div>
-                <div className="text-right">
-                  <span className="text-xs text-stone-400 block mb-1 tracking-widest">圓滿日期</span>
-                  <span className="font-bold text-amber-700 text-sm">
-                    {s.completedAt ? new Date(s.completedAt.toDate()).toLocaleDateString('zh-HK') : ''}
-                  </span>
-                </div>
+              <div className="mt-6 flex justify-end">
+                <p className="text-xs text-stone-400 tracking-widest">單號：{s.taskId}</p>
               </div>
             </div>
           )) : (

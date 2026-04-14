@@ -2,65 +2,91 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { collection, addDoc, getDocs, updateDoc, doc, query, orderBy, where } from "firebase/firestore";
+import { collection, addDoc, getDocs, updateDoc, doc, query, orderBy, where, getDoc } from "firebase/firestore";
 import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { initializeApp, getApps, getApp } from "firebase/app";
 import { getFirestore } from "firebase/firestore";
 
 const firebaseConfig = {
-  apiKey: "AIzaSyAdU0mra6pXm4jvpHc3XVc68RMcE_n1Q2I",
-  authDomain: "columbarium-hub-2026.firebaseapp.com",
-  projectId: "columbarium-hub-2026",
-  storageBucket: "columbarium-hub-2026.firebasestorage.app",
+  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
+  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
+  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
 };
 const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
 const db = getFirestore(app);
 const storage = getStorage(app);
+
+// 🛠️ 前端圖片壓縮函式 (目標約 130KB)
+const compressImage = (file: File): Promise<Blob> => {
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = (event) => {
+      const img = new Image();
+      img.src = event.target?.result as string;
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const MAX_WIDTH = 800; // 限制最大寬度以縮小檔案
+        const scaleSize = MAX_WIDTH / img.width;
+        canvas.width = MAX_WIDTH;
+        canvas.height = img.height * scaleSize;
+        const ctx = canvas.getContext('2d');
+        ctx?.drawImage(img, 0, 0, canvas.width, canvas.height);
+        // 設定 JPEG 品質為 0.7，通常能將照片壓到 100~150KB 左右
+        canvas.toBlob((blob) => resolve(blob as Blob), 'image/jpeg', 0.7);
+      };
+    };
+  });
+};
 
 export default function ServicesPage() {
   const [tasks, setTasks] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [uploadingId, setUploadingId] = useState<string | null>(null);
   
-  // 💡 新增：用來存放所有「已售出」的祿位資料，供智慧搜尋使用
+  // 智慧搜尋相關狀態
   const [soldTablets, setSoldTablets] = useState<any[]>([]);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
 
+  // 動態服務項目
+  const [serviceTypes, setServiceTypes] = useState<string[]>(["預設法事"]);
+
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [formData, setFormData] = useState({ tabletId: "", type: "初一十五供奉", scheduledDate: "" });
-
-  const serviceTypes = ["初一十五供奉", "週年法事", "百日追思", "清明祭祀", "重陽秋祭", "其他專屬法事"];
-
-  // 讀取真實排程
-  const fetchTasks = async () => {
-    setLoading(true);
-    try {
-      const q = query(collection(db, "services"), orderBy("createdAt", "desc"));
-      const snapshot = await getDocs(q);
-      setTasks(snapshot.docs.map(doc => ({ dbId: doc.id, ...doc.data() })));
-    } catch (err) {
-      console.error("讀取法事排程失敗:", err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // 💡 讀取所有已售出的祿位，供建單時搜尋
-  const fetchSoldTablets = async () => {
-    try {
-      const q = query(collection(db, "tablets"), where("status", "==", "sold"));
-      const snapshot = await getDocs(q);
-      setSoldTablets(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-    } catch (err) {
-      console.error("讀取已售祿位失敗:", err);
-    }
-  };
+  const [formData, setFormData] = useState({ tabletId: "", type: "", scheduledDate: "" });
 
   useEffect(() => {
-    fetchTasks();
-    fetchSoldTablets();
+    const fetchData = async () => {
+      setLoading(true);
+      try {
+        // 1. 讀取系統設定的服務項目
+        const settingSnap = await getDoc(doc(db, "settings", "general"));
+        if (settingSnap.exists() && settingSnap.data().serviceTypes) {
+          const types = settingSnap.data().serviceTypes;
+          setServiceTypes(types);
+          setFormData(prev => ({ ...prev, type: types[0] })); // 預設選第一個
+        }
+
+        // 2. 讀取真實排程
+        const qTasks = query(collection(db, "services"), orderBy("createdAt", "desc"));
+        const snapshotTasks = await getDocs(qTasks);
+        setTasks(snapshotTasks.docs.map(doc => ({ dbId: doc.id, ...doc.data() })));
+
+        // 3. 讀取所有已售出的祿位，供智慧搜尋
+        const qTablets = query(collection(db, "tablets"), where("status", "==", "sold"));
+        const snapshotTablets = await getDocs(qTablets);
+        setSoldTablets(snapshotTablets.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+        
+      } catch (err) {
+        console.error("資料讀取失敗:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchData();
   }, []);
 
+  // 建立新派單
   const handleCreateTask = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
@@ -70,52 +96,72 @@ export default function ServicesPage() {
         type: formData.type,
         scheduledDate: formData.scheduledDate,
         status: "pending",
-        imageUrl: "",
+        imageUrls: [], // 支援多圖陣列
         createdAt: new Date(),
       });
       setIsModalOpen(false);
-      setFormData({ tabletId: "", type: "初一十五供奉", scheduledDate: "" });
-      fetchTasks();
+      setFormData({ tabletId: "", type: serviceTypes[0], scheduledDate: "" });
+      
+      // 重新讀取任務列表
+      const qTasks = query(collection(db, "services"), orderBy("createdAt", "desc"));
+      const snapshotTasks = await getDocs(qTasks);
+      setTasks(snapshotTasks.docs.map(doc => ({ dbId: doc.id, ...doc.data() })));
       alert("法事排程建立成功！");
     } catch (err) {
       console.error("建立排程失敗:", err);
     }
   };
 
-  const handleFileUpload = async (task: any, e: React.ChangeEvent<HTMLInputElement>) => {
-    // ... (保留原本的上傳邏輯，與之前完全相同)
-    const file = e.target.files?.[0];
-    if (!file) return;
+  // 多圖上傳與壓縮
+  const handleMultipleFilesUpload = async (task: any, e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
+    if (files.length > 5) {
+      alert("每次最多只能上傳 5 張照片！");
+      return;
+    }
 
     setUploadingId(task.dbId);
     try {
-      const storageRef = ref(storage, `services/${task.taskId}-${file.name}`);
-      await uploadBytes(storageRef, file);
-      const downloadURL = await getDownloadURL(storageRef);
+      const uploadedUrls: string[] = [];
       
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        // 1. 壓縮圖片
+        const compressedBlob = await compressImage(file);
+        // 2. 上傳至 Storage
+        const storageRef = ref(storage, `services/${task.taskId}-${Date.now()}-${i}.jpg`);
+        await uploadBytes(storageRef, compressedBlob);
+        const downloadURL = await getDownloadURL(storageRef);
+        uploadedUrls.push(downloadURL);
+      }
+      
+      // 3. 寫入資料庫
       const taskRef = doc(db, "services", task.dbId);
       await updateDoc(taskRef, {
         status: "completed",
-        imageUrl: downloadURL,
+        imageUrls: uploadedUrls, // 存入多張照片網址
         completedAt: new Date(),
       });
 
+      // 更新畫面
       setTasks(prev => prev.map(t => 
-        t.dbId === task.dbId ? { ...t, status: 'completed', imageUrl: downloadURL } : t
+        t.dbId === task.dbId ? { ...t, status: 'completed', imageUrls: uploadedUrls } : t
       ));
       alert("法事照片上傳成功，任務已結案！");
     } catch (error) {
       console.error("上傳失敗:", error);
+      alert("上傳失敗請重試");
     } finally {
       setUploadingId(null);
     }
   };
 
-  // 💡 智慧搜尋的過濾邏輯：可搜編號，也可搜姓名
+  // 智慧搜尋的過濾邏輯：可搜編號，也可搜姓名
   const filteredOptions = soldTablets.filter(tablet => 
     tablet.id.toLowerCase().includes(formData.tabletId.toLowerCase()) || 
     (tablet.ownerName && tablet.ownerName.toLowerCase().includes(formData.tabletId.toLowerCase()))
-  ).slice(0, 5); // 最多只顯示 5 筆建議，避免畫面太長
+  ).slice(0, 5);
 
   return (
     <div className="space-y-6 relative">
@@ -131,7 +177,6 @@ export default function ServicesPage() {
         </button>
       </div>
 
-      {/* 任務列表卡片... (保持不變) */}
       {loading ? (
         <div className="py-20 text-center text-stone-500">載入排程中...</div>
       ) : (
@@ -153,19 +198,26 @@ export default function ServicesPage() {
                 <p><strong>預定日期：</strong> {task.scheduledDate || '未指定'}</p>
               </div>
               
-              {task.imageUrl && (
+              {/* 多圖 / 單圖 兼容展示區 */}
+              {task.imageUrls && task.imageUrls.length > 0 ? (
+                <div className="mb-4 grid grid-cols-2 gap-2">
+                  {task.imageUrls.map((url: string, idx: number) => (
+                    <img key={idx} src={url} alt={`照片 ${idx+1}`} className="w-full h-24 object-cover rounded border border-stone-200" />
+                  ))}
+                </div>
+              ) : task.imageUrl ? (
                 <div className="mb-4 rounded-md overflow-hidden border border-stone-200">
                   <img src={task.imageUrl} alt="法事紀錄" className="w-full h-40 object-cover" />
                 </div>
-              )}
+              ) : null}
               
               <div className="mt-auto pt-4 border-t border-stone-100 relative">
                 {uploadingId === task.dbId ? (
-                  <div className="w-full text-center py-2 text-sm text-stone-500 font-medium animate-pulse">上傳中...</div>
+                  <div className="w-full text-center py-2 text-sm text-stone-500 font-medium animate-pulse">壓縮並上傳中...</div>
                 ) : (
                   <label className="cursor-pointer w-full flex items-center justify-center bg-stone-50 text-stone-700 py-2 rounded-md text-sm font-medium hover:bg-stone-100 transition border border-dashed border-stone-300">
-                    {task.imageUrl ? '📸 重新上傳照片' : '📸 上傳法事照片'}
-                    <input type="file" accept="image/*" className="hidden" onChange={(e) => handleFileUpload(task, e)} />
+                    {task.imageUrls?.length > 0 || task.imageUrl ? '📸 重新上傳照片' : '📸 上傳照片 (最多5張)'}
+                    <input type="file" accept="image/*" multiple className="hidden" onChange={(e) => handleMultipleFilesUpload(task, e)} />
                   </label>
                 )}
               </div>
@@ -174,14 +226,16 @@ export default function ServicesPage() {
         </div>
       )}
 
-      {/* ===== 新增排程 Modal ===== */}
+      {/* 🔴 已修復 z-index 與背景點擊的 Modal */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-          <div className="bg-white p-6 rounded-xl w-full max-w-md shadow-2xl overflow-visible">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center">
+          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setIsModalOpen(false)}></div>
+          
+          <div className="bg-white p-6 rounded-xl w-full max-w-md shadow-2xl overflow-visible relative z-10">
             <h2 className="text-xl font-bold mb-6 text-stone-800">建立新法事排程</h2>
             <form onSubmit={handleCreateTask} className="space-y-4">
               
-              {/* 💡 智慧搜尋框 (Autocomplete) */}
+              {/* 智慧搜尋框 (Autocomplete) */}
               <div className="relative">
                 <label className="block text-sm font-medium text-stone-700">目標祿位 (可輸入編號或客戶姓名)</label>
                 <input 
@@ -194,7 +248,7 @@ export default function ServicesPage() {
                     setIsDropdownOpen(true);
                   }}
                   onFocus={() => setIsDropdownOpen(true)}
-                  onBlur={() => setTimeout(() => setIsDropdownOpen(false), 200)} // 延遲關閉，避免點不到清單
+                  onBlur={() => setTimeout(() => setIsDropdownOpen(false), 200)}
                   className="mt-1 w-full rounded-md border-stone-300 shadow-sm focus:border-amber-500" 
                   placeholder="例如: L1-101 或 王大明"
                 />
